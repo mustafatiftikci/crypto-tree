@@ -2,13 +2,16 @@
 name = "crypto-tree-wasm"
 version = "0.1.0"
 edition = "2021"
+description = "A cryptographic Merkle tree implementation for secure transaction verification."
+license = "MIT"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-crypto-tree = { path = "../rust" }
+crypto_tree = { path = "../rust" }
 wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.4"  # <-- Add this line
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
