@@ -1,0 +1,11 @@
+{
+  "name": "crypto-tree-wasm",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "wasm-pack build --target web",
+    "start": "npm run build && sed -i '' 's/from \"\\.\\/pkg\\/crypto_tree_wasm\\.js\"/from \"\\.\\/crypto_tree_wasm\\.js\"/' pkg/index.html && cp index.html pkg/ && serve -s pkg -p 5023"
+  },
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}

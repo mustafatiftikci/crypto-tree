@@ -1,5 +1,6 @@
 use crypto_tree::{CryptoBinaryTree, Transaction, ProofStep};
 use wasm_bindgen::prelude::*;
+use serde_wasm_bindgen::to_value;  // <-- Add this import
 
 #[wasm_bindgen]
 pub struct CryptoTreeWasm {
@@ -30,14 +31,14 @@ impl CryptoTreeWasm {
     #[wasm_bindgen]
     pub fn search(&self, id: &str) -> Option<JsValue> {
         self.tree.search(id).map(|tx| {
-            serde_wasm_bindgen::to_value(&tx).unwrap()
+            to_value(&tx).unwrap()  // <-- Now this works
         })
     }
 
     #[wasm_bindgen]
     pub fn get_proof_of_inclusion(&self, id: &str) -> Option<JsValue> {
         self.tree.get_proof_of_inclusion(id).map(|proof| {
-            serde_wasm_bindgen::to_value(&proof).unwrap()
+            to_value(&proof).unwrap()  // <-- Now this works
         })
     }
 

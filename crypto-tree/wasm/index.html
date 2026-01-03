@@ -1,134 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryptoTree WASM Demo</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; color: #333; }
-        h1 { color: #2c3e50; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: 20px 0; }
-        button { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; }
-        button:hover { background: #2980b9; }
-        pre { background: #f1f1f1; padding: 15px; border-radius: 5px; overflow-x: auto; }
-        .success { color: #27ae60; }
-        .error { color: #e74c3c; }
-        .label { font-weight: bold; color: #555; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CryptoTree WASM Demo</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; color: #333; }
+    h1 { color: #2c3e50; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: 20px 0; }
+    button { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; }
+    button:hover { background: #2980b9; }
+    pre { background: #f1f1f1; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    .success { color: #27ae60; }
+    .error { color: #e74c3c; }
+    .label { font-weight: bold; color: #555; }
+  </style>
 </head>
 <body>
-    <h1>🌳 CryptoTree WASM Demo</h1>
-    <p><em>Search and verify blockchain transactions in your browser — no server needed.</em></p>
+  <h1>CryptoTree WASM Demo</h1>
+  <p>Insert a transaction and verify its proof.</p>
 
-    <div class="card">
-        <h2>Insert Transaction</h2>
-        <div>
-            <label class="label">Tx ID:</label> <input type="text" id="txId" value="tx_001" style="width: 100px;" />
-            <label class="label">From:</label> <input type="text" id="from" value="Alice" style="width: 100px;" />
-            <label class="label">To:</label> <input type="text" id="to" value="Bob" style="width: 100px;" />
-            <label class="label">Amount:</label> <input type="number" id="amount" value="100" style="width: 80px;" />
-            <label class="label">Timestamp:</label> <input type="number" id="timestamp" value="1640995200" style="width: 120px;" />
-            <button onclick="insertTx()">Insert</button>
-        </div>
-    </div>
+  <label>ID: <input type="text" id="id" value="tx1"></label><br>
+  <label>From: <input type="text" id="from" value="alice"></label><br>
+  <label>To: <input type="text" id="to" value="bob"></label><br>
+  <label>Amount: <input type="text" id="amount" value="100"></label><br>
+  <button id="insert-btn">Insert Transaction</button>
+  <button id="proof-btn">Get Proof</button>
+  <button id="verify-btn">Verify Proof</button>
 
-    <div class="card">
-        <h2>Search Transaction</h2>
-        <div>
-            <label class="label">Tx ID to search:</label> <input type="text" id="searchId" value="tx_001" style="width: 150px;" />
-            <button onclick="searchTx()">Search</button>
-            <button onclick="clearOutput()">Clear</button>
-        </div>
-    </div>
+  <h3>Output:</h3>
+  <div id="output">Waiting for action...</div>
 
-    <div class="card">
-        <h2>Get Proof of Inclusion</h2>
-        <div>
-            <label class="label">Tx ID for proof:</label> <input type="text" id="proofId" value="tx_001" style="width: 150px;" />
-            <button onclick="getProof()">Get Proof</button>
-        </div>
-    </div>
+  <script type="module">
+    import init, { CryptoTreeWasm } from './crypto_tree_wasm.js';
 
-    <div class="card">
-        <h2>Tree Status</h2>
-        <div><span class="label">Size:</span> <span id="size">0</span></div>
-        <div><span class="label">Merkle Root:</span> <span id="merkleRoot">-</span></div>
-        <div><span class="label">Integrity:</span> <span id="integrity">-</span></div>
-        <button onclick="verifyIntegrity()">Verify Integrity</button>
-    </div>
+    let tree;
 
-    <div class="card">
-        <h2>Output</h2>
-        <pre id="output" style="white-space: pre-wrap; font-family: monospace; background: #f1f1f1; padding: 15px; border-radius: 5px; max-height: 400px; overflow-y: auto;"></pre>
-    </div>
+    async function run() {
+      await init();
+      tree = new CryptoTreeWasm();
+      document.getElementById('output').textContent = 'CryptoTree initialized!';
+    }
 
-    <script type="module">
-        import init, { CryptoTreeWasm } from './pkg/crypto_tree_wasm.js';
+    async function insertTx() {
+    const id = document.getElementById('id').value;
+    const from = document.getElementById('from').value;
+    const to = document.getElementById('to').value;
+    const amountStr = document.getElementById('amount').value;
+    const amount = BigInt(amountStr);
 
-        async function initApp() {
-            await init();
-            window.tree = new CryptoTreeWasm();
-            updateStatus();
-        }
+    // ✅ ADD THIS DEBUG LINE
+    console.log("Inserting:", { id, from, to, amount: amount.toString() });
 
-        function updateStatus() {
-            document.getElementById('size').textContent = window.tree.len();
-            document.getElementById('merkleRoot').textContent = window.tree.merkle_root();
-            document.getElementById('integrity').textContent = window.tree.verify_integrity() ? 
-                '<span class="success">✓ Valid</span>' : '<span class="error">✗ Invalid</span>';
-        }
+    try {
+        const success = tree.insert(id, from, to, amount, null);
+        document.getElementById('output').textContent = `Insert ${success ? 'success' : 'failed'}: ${id} (amount: ${amountStr})`;
+    } catch (e) {
+        document.getElementById('output').textContent = `Error: ${e.message}`;
+    }
+    }
 
-        function insertTx() {
-            const id = document.getElementById('txId').value;
-            const from = document.getElementById('from').value;
-            const to = document.getElementById('to').value;
-            const amount = parseInt(document.getElementById('amount').value);
-            const timestamp = parseInt(document.getElementById('timestamp').value) || null;
+    async function getProof() {
+      const id = document.getElementById('id').value;
+      const proof = tree.get_proof_of_inclusion(id);
+      if (proof) {
+        document.getElementById('output').textContent = 'Proof: ' + JSON.stringify(proof, null, 2);
+      } else {
+        document.getElementById('output').textContent = 'Proof not found for ID: ' + id;
+      }
+    }
 
-            const inserted = window.tree.insert(id, from, to, amount, timestamp);
-            log(`✅ Inserted: ${id} (${inserted ? 'new' : 'duplicate'})`);
-            updateStatus();
-        }
+    async function verifyProof() {
+      const id = document.getElementById('id').value;
+      const proof = tree.get_proof_of_inclusion(id);
+      if (proof) {
+        const valid = tree.verify_integrity();
+        document.getElementById('output').textContent = `Integrity verified: ${valid}`;
+      } else {
+        document.getElementById('output').textContent = 'No proof to verify.';
+      }
+    }
 
-        function searchTx() {
-            const id = document.getElementById('searchId').value;
-            const tx = window.tree.search(id);
-            if (tx) {
-                log(`🔍 Found: ${JSON.stringify(tx, null, 2)}`);
-            } else {
-                log(`❌ Not found: ${id}`);
-            }
-        }
-
-        function getProof() {
-            const id = document.getElementById('proofId').value;
-            const proof = window.tree.get_proof_of_inclusion(id);
-            if (proof) {
-                log(`📋 Proof for ${id}:\n${JSON.stringify(proof, null, 2)}`);
-            } else {
-                log(`❌ No proof found for ${id}`);
-            }
-        }
-
-        function verifyIntegrity() {
-            const valid = window.tree.verify_integrity();
-            document.getElementById('integrity').innerHTML = valid ? 
-                '<span class="success">✓ Valid</span>' : '<span class="error">✗ Invalid</span>';
-            log(valid ? '🛡️ Tree integrity: ✅ Valid' : '🛡️ Tree integrity: ❌ Invalid');
-        }
-
-        function clearOutput() {
-            document.getElementById('output').textContent = '';
-        }
-
-        function log(message) {
-            const output = document.getElementById('output');
-            output.textContent += message + '\n\n';
-            output.scrollTop = output.scrollHeight;
-        }
-
-        // Initialize
-        initApp();
-    </script>
+    // ✅ Attach event listeners AFTER the module is loaded
+    run().then(() => {
+      document.getElementById('insert-btn').addEventListener('click', insertTx);
+      document.getElementById('proof-btn').addEventListener('click', getProof);
+      document.getElementById('verify-btn').addEventListener('click', verifyProof);
+    });
+  </script>
 </body>
 </html>
