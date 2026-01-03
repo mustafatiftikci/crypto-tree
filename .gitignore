@@ -1,0 +1,3 @@
+# target files in Rust implementation
+crypto-tree/rust/target
+crypto-tree/rust/Cargo.lock

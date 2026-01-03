@@ -1,6 +1,5 @@
 use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
-use std::collections::HashMap;
 
 /// A transaction in the CryptoTree
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -24,7 +23,7 @@ pub struct CryptoTreeNode {
 
 impl CryptoTreeNode {
     pub fn new(transaction: Transaction) -> Self {
-        let hash = Self::calculate_hash(&transaction, &None, &None);
+        let hash = Self::calculate_hash(&transaction, &None, &None, 1);
         Self {
             transaction,
             left: None,
@@ -34,15 +33,16 @@ impl CryptoTreeNode {
         }
     }
 
-    fn calculate_hash(transaction: &Transaction, left_hash: &Option<String>, right_hash: &Option<String>) -> String {
-        let left_hash_str = left_hash.as_ref().unwrap_or(&"0".to_string());
-        let right_hash_str = right_hash.as_ref().unwrap_or(&"0".to_string());
+    fn calculate_hash(transaction: &Transaction, left_hash: &Option<String>, right_hash: &Option<String>, height: i32) -> String {
+        let zero_string = "0".to_string();
+        let left_hash_str = left_hash.as_ref().unwrap_or(&zero_string);
+        let right_hash_str = right_hash.as_ref().unwrap_or(&zero_string);
         
         let node_data = CryptoTreeNodeData {
             transaction: transaction.clone(),
             left_hash: left_hash_str.clone(),
             right_hash: right_hash_str.clone(),
-            height: 1, // Will be updated after insertion
+            height, // Use the actual height instead of hardcoded 1
         };
         
         let json_str = serde_json::to_string(&node_data).unwrap();
@@ -53,7 +53,7 @@ impl CryptoTreeNode {
     }
 
     fn update_hash(&mut self, left_hash: &Option<String>, right_hash: &Option<String>) {
-        self.hash = Self::calculate_hash(&self.transaction, left_hash, right_hash);
+        self.hash = Self::calculate_hash(&self.transaction, left_hash, right_hash, self.height);
     }
 
     fn get_balance_factor(&self) -> i32 {
@@ -104,7 +104,8 @@ impl CryptoBinaryTree {
         }
 
         let mut inserted = false;
-        self.root = Self::_insert_recursive(self.root, transaction, &mut inserted);
+        let root = std::mem::take(&mut self.root);
+        self.root = Self::_insert_recursive(root, transaction, &mut inserted);
         if inserted {
             self.size += 1;
             self._update_merkle_root();
@@ -138,14 +139,16 @@ impl CryptoBinaryTree {
                 }
 
                 if *inserted {
-                    // Update height and hash
+                    // Update height first
+                    n.update_height();
+                    
+                    // Balance the node
+                    n = Self::_balance_node(n);
+                    
+                    // Now update the hash after balancing
                     let left_hash = n.left.as_ref().map(|l| l.hash.clone());
                     let right_hash = n.right.as_ref().map(|r| r.hash.clone());
                     n.update_hash(&left_hash, &right_hash);
-                    n.update_height();
-
-                    // Balance the node
-                    n = Self::_balance_node(n);
                 }
 
                 Some(n)
@@ -160,69 +163,89 @@ impl CryptoBinaryTree {
         if balance > 1 {
             if node.left.as_ref().map_or(0, |l| l.get_balance_factor()) < 0 {
                 // Left-Right case
-                node.left = Some(Self::_rotate_left(*node.left.unwrap()));
+                node.left = Some(Self::_rotate_left(Box::new(*node.left.unwrap())));
             }
             // Left-Left case
-            node = *Self::_rotate_right(node);
+            node = Self::_rotate_right(node); // ✅ Fixed: return is Box, assign directly
         }
         // Right heavy
         else if balance < -1 {
             if node.right.as_ref().map_or(0, |r| r.get_balance_factor()) > 0 {
                 // Right-Left case
-                node.right = Some(Self::_rotate_right(*node.right.unwrap()));
+                node.right = Some(Self::_rotate_right(Box::new(*node.right.unwrap())));
             }
             // Right-Right case
-            node = *Self::_rotate_left(node);
+            node = Self::_rotate_left(node); // ✅ Fixed: return is Box, assign directly
         }
 
         node
     }
 
     fn _rotate_left(mut z: Box<CryptoTreeNode>) -> Box<CryptoTreeNode> {
+        // Update heights before rotation
+        z.update_height();
+        
+        // Get the right child (y)
         let mut y = z.right.take().unwrap();
+        y.update_height();
+        
+        // Perform the rotation
         let t2 = y.left.take();
-
         z.right = t2;
         y.left = Some(z);
-
-        // Update heights
+        
+        // Update heights after rotation
         y.left.as_mut().unwrap().update_height();
         y.update_height();
-
-        // Update hashes
-        let left_hash = y.left.as_ref().map(|l| l.hash.clone());
-        let right_hash = y.right.as_ref().map(|r| r.hash.clone());
-        y.update_hash(&left_hash, &right_hash);
-        y.left.as_mut().unwrap().update_hash(&left_hash, &right_hash);
+        
+        // Update hashes after rotation using current children
+        let z_node = y.left.as_mut().unwrap();
+        let z_left_hash = z_node.left.as_ref().map(|l| l.hash.clone());
+        let z_right_hash = z_node.right.as_ref().map(|r| r.hash.clone());
+        z_node.update_hash(&z_left_hash, &z_right_hash);
+        
+        let y_left_hash = y.left.as_ref().map(|l| l.hash.clone());
+        let y_right_hash = y.right.as_ref().map(|r| r.hash.clone());
+        y.update_hash(&y_left_hash, &y_right_hash);
 
         y
     }
 
     fn _rotate_right(mut z: Box<CryptoTreeNode>) -> Box<CryptoTreeNode> {
+        // Update heights before rotation
+        z.update_height();
+        
+        // Get the left child (y)
         let mut y = z.left.take().unwrap();
+        y.update_height();
+        
+        // Perform the rotation
         let t3 = y.right.take();
-
         z.left = t3;
         y.right = Some(z);
-
-        // Update heights
+        
+        // Update heights after rotation
         y.right.as_mut().unwrap().update_height();
         y.update_height();
-
-        // Update hashes
-        let left_hash = y.left.as_ref().map(|l| l.hash.clone());
-        let right_hash = y.right.as_ref().map(|r| r.hash.clone());
-        y.update_hash(&left_hash, &right_hash);
-        y.right.as_mut().unwrap().update_hash(&left_hash, &right_hash);
+        
+        // Update hashes after rotation using current children
+        let z_node = y.right.as_mut().unwrap();
+        let z_left_hash = z_node.left.as_ref().map(|l| l.hash.clone());
+        let z_right_hash = z_node.right.as_ref().map(|r| r.hash.clone());
+        z_node.update_hash(&z_left_hash, &z_right_hash);
+        
+        let y_left_hash = y.left.as_ref().map(|l| l.hash.clone());
+        let y_right_hash = y.right.as_ref().map(|r| r.hash.clone());
+        y.update_hash(&y_left_hash, &y_right_hash);
 
         y
     }
 
-    pub fn search(&self, tx_id: &str) -> Option<&Transaction> {
+    pub fn search<'a>(&'a self, tx_id: &str) -> Option<&'a Transaction> {
         Self::_search_recursive(&self.root, tx_id)
     }
 
-    fn _search_recursive(node: &Option<Box<CryptoTreeNode>>, tx_id: &str) -> Option<&Transaction> {
+    fn _search_recursive<'a>(node: &'a Option<Box<CryptoTreeNode>>, tx_id: &str) -> Option<&'a Transaction> {
         match node {
             None => None,
             Some(n) => {
@@ -247,7 +270,7 @@ impl CryptoBinaryTree {
             Some(n) => {
                 let left_hash = n.left.as_ref().map(|l| l.hash.clone());
                 let right_hash = n.right.as_ref().map(|r| r.hash.clone());
-                let expected_hash = CryptoTreeNode::calculate_hash(&n.transaction, &left_hash, &right_hash);
+                let expected_hash = CryptoTreeNode::calculate_hash(&n.transaction, &left_hash, &right_hash, n.height);
                 if n.hash != expected_hash {
                     eprintln!("❌ Hash mismatch at transaction {}", n.transaction.id);
                     return false;
@@ -341,8 +364,8 @@ mod tests {
             amount: 100,
             timestamp: Some(1640995200),
         };
-        assert!(tree.insert(tx));
-        assert!(!tree.insert(tx)); // Duplicate
+        assert!(tree.insert(tx.clone())); // First insert - clone for ownership
+        assert!(!tree.insert(tx)); // Duplicate - use original (now moved)
         assert_eq!(tree.len(), 1);
     }
 
