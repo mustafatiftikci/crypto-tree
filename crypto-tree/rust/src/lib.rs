@@ -86,6 +86,12 @@ pub struct CryptoBinaryTree {
     merkle_root: String,
 }
 
+impl Default for CryptoBinaryTree {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CryptoBinaryTree {
     pub fn new() -> Self {
         Self {
@@ -297,7 +303,7 @@ impl CryptoBinaryTree {
         match node {
             None => false,
             Some(n) => {
-                if tx_id == &n.transaction.id {
+                if tx_id == n.transaction.id {
                     true
                 } else if tx_id < &n.transaction.id {
                     if let Some(ref right) = n.right {
@@ -322,6 +328,10 @@ impl CryptoBinaryTree {
 
     pub fn len(&self) -> usize {
         self.size
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
     }
 
     pub fn merkle_root(&self) -> &str {
