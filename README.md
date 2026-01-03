@@ -1,104 +1,63 @@
-# CryptoTree: Searchable Merkle Binary Tree for Blockchain
+# CryptoTree
 
-> **A cryptographically secure, self-balancing, on-chain searchable tree for fast transaction lookups — O(log n) with verifiable proofs.**
+> **A cryptographically verifiable Merkle AVL Tree implementation in Rust.**
 
-![CryptoTree Architecture](https://via.placeholder.com/800x400?text=CryptoTree+Architecture+Diagram)
+CryptoTree is a high-performance, authenticated dictionary data structure designed for client-side state verification. It combines the self-balancing properties of an **AVL Tree** with the cryptographic integrity of a **Merkle Tree**, enabling O(log n) search operations with verifiable proofs of inclusion.
 
-## 🚀 Why This Exists
+This library is written in Rust and compiles to WebAssembly (WASM), making it suitable for usage in both backend systems and browser-based light clients.
 
-Blockchain is a linked list. Searching for a transaction is **O(n)** — requiring scanning millions of blocks.
+## Features
 
-Bitcoin and Ethereum solve this with **off-chain indexes** (TheGraph, Dune, Nansen) — but they’re centralized, trust-dependent, and expensive.
+- **Authenticated Storage**: Every node is hashed (SHA-256), creating a tamper-evident root hash (Merkle Root).
+- **Efficient Search**: O(log n) lookup, insertion, and proof generation via AVL balancing.
+- **Verifiable Proofs**: Generate compact Merkle proofs that can be verified by any client with the root hash.
+- **WASM Support**: First-class support for compiling to WebAssembly for browser environments.
+- **Zero Dependencies**: Core logic depends only on standard crypto libraries.
 
-**CryptoTree** is the first **on-chain, self-balancing, Merkle-verified binary search tree** designed for transactions. It enables:
+## Architecture
 
-- ✅ O(log n) transaction search
-- ✅ Cryptographic proofs of inclusion (for light clients)
-- ✅ Decentralized alternative to TheGraph
-- ✅ Built-in integrity verification
-- ✅ Multi-index support (tx_id, from, to, timestamp)
+CryptoTree differs from standard Merkle Trees (which are typically static or append-only) by supporting dynamic insertions while maintaining a balanced structure. This makes it ideal for use cases where state changes frequently but verification is required.
 
-This is not a library — it’s a **new blockchain data primitive**.
+- **Tree Type**: Binary AVL Tree
+- **Hashing**: SHA-256
+- **Serialization**: Deterministic canonical JSON (for proof stability)
 
----
+## Usage
 
-## 📊 Performance Comparison
+### Rust
 
-| Search Type | Operations (1M tx) | Time Estimate |
-|-------------|-------------------|---------------|
-| Blockchain (linked list) | 1,000,000 | ~10s |
-| CryptoTree (AVL) | ~20 | ~0.001s |
-| Bitcoin Index (hashmap) | 1 | ~0.0001s |
+Add to your `Cargo.toml`:
 
-> ⚠️ Bitcoin’s index is fast — but **centralized**. CryptoTree is **decentralized and verifiable**.
-
----
-
-## 📦 Installation
-
-```bash
-pip install crypto-tree
+```toml
+[dependencies]
+crypto_tree = { path = "crypto-tree/rust" }
 ```
 
-## 🛠️ Usage
+```rust
+use crypto_tree::{CryptoBinaryTree, Transaction};
 
-```python
-from crypto_tree import CryptoBinaryTree
+let mut tree = CryptoBinaryTree::new();
 
-# Initialize
-tree = CryptoBinaryTree()
+// Insert data
+let tx = Transaction::new("tx_123", "Alice", "Bob", 50);
+tree.insert(tx);
 
-# Insert transactions
-transactions = [
-    {"id": "tx_001", "from": "Alice", "to": "Bob", "amount": 100, "timestamp": 1640995200},
-    {"id": "tx_002", "from": "Bob", "to": "Charlie", "amount": 50, "timestamp": 1640995300},
-]
+// Generate Proof
+let proof = tree.get_proof_of_inclusion("tx_123").unwrap();
 
-for tx in transactions:
-    tree.insert(tx)
-
-# Search by tx_id (O(log n))
-result = tree.search("tx_001")
-print(result)  # {'id': 'tx_001', ...}
-
-# Get cryptographic proof of inclusion
-proof = tree.get_proof_of_inclusion("tx_001")
-print(f"Proof has {len(proof)} hashes")
-
-# Verify integrity of entire tree
-is_valid = tree.verify_integrity()
-print(f"Tree integrity: {is_valid}")
+// Verify (Client-side)
+let is_valid = crypto_tree::verify_proof("tx_123", &proof, &tree.root_hash());
 ```
 
-## 🔐 Security & Design
+### WebAssembly (Browser)
 
-- Uses **SHA-256** for cryptographic hashing
-- **AVL tree** ensures O(log n) worst-case performance
-- Hashes include: transaction data + child hashes + height
-- Merkle root updated on every insert
-- Proofs are structured: `{ path: ["left", "right"], siblings: ["hash1", "hash2"] }`
+See [crypto-tree/wasm/README.md](crypto-tree/wasm/README.md) for browser integration details.
 
-## 📚 Technical Deep Dive
+## Project Structure
 
-See [docs/spec.md](docs/spec.md) for formal specification, including:
+- `crypto-tree/rust`: Core Rust implementation.
+- `crypto-tree/wasm`: WASM bindings and browser demo.
 
-- AVL balancing rotations
-- Hash serialization (CBOR)
-- Proof verification algorithm
-- Multi-index architecture
-
-## 🌍 Roadmap
-
-- [x] Python implementation (AVL + Merkle)
-- [ ] Rust port (for performance & WASM)
-- [ ] WebAssembly browser demo
-- [ ] Ethereum L2 integration
-- [ ] Bitcoin index compatibility layer
-
-## 🤝 Contribute
-
-PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## 📜 License
+## License
 
 MIT
